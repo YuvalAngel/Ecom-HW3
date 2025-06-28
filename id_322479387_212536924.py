@@ -9,7 +9,7 @@ class BiddingAgent1:
         pass
 
     def get_id(self):
-        return "id_123456789_98765432"
+        return "id_322479387_212536924"
 
 class BiddingAgent2:
     def __init__(self):
@@ -22,4 +22,4 @@ class BiddingAgent2:
         pass
 
     def get_id(self):
-        return "id_123456789_98765432"
+        return "id_322479387_212536924"
