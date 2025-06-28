@@ -3,11 +3,20 @@ import random
 
 import numpy as np
 import pandas as pd
-import CONSTANTS
+import CONSTANTS # Assuming this CONSTANTS module exists and defines necessary constants
 from tqdm import tqdm
 
 import os
 
+
+NUM_SIMULATIONS = 5
+
+# Your provided functions (cap_prob, get_agent_list, is_agent_valid, BookKeeping,
+# sample_relevant_agents, get_timeout_agents, sample_variables, gsp, sample_rewards,
+# and sequential_game) should be placed here or imported.
+# For this example, I'm assuming they are accessible in the same scope or imported.
+
+# --- Start of your provided code (assuming it's all in one file for simplicity) ---
 
 def cap_prob(p):
     if p > 1.0:
@@ -19,17 +28,10 @@ def cap_prob(p):
 
 
 def get_agent_list(is_agent2 = False):
-    """
-    In our simulations, we will read your files. Here
-    we have several dummy files and your agent. Feel free to implement many agents and test them against one another
-    :Competition: boolean variable. If it is False, the agent your first implementation. 
-    Otherwise, the agent is your second implementation.
-    :return: list of all agents competing in the game
-    """
     file_list = [f.rstrip(".py") for f in os.listdir('.') if (os.path.isfile(f) and f.startswith("id_"))]
     agent_list = []
     for i, f in enumerate(file_list):
-        print(i, f)
+        # print(i, f) # Commented out for cleaner output during multiple runs
         mod = __import__(f)
         try:
             if is_agent2 is False:
@@ -41,13 +43,12 @@ def get_agent_list(is_agent2 = False):
             else:
                 print("file {0} introduced an invalid agent".format(f))
         except Exception as e:
-            print(e)
+            # print(e) # Commented out for cleaner output during multiple runs
             print("file {0} raised an exception".format(f))
     return agent_list
 
 
 def is_agent_valid(ba):
-    # has the properties
     if not hasattr(ba, 'get_bid') or not hasattr(ba, 'get_id') or not hasattr(ba, 'notify_outcome'):
         return False
     return True
@@ -82,17 +83,16 @@ class BookKeeping:
         return self.id
 
     def get_all(self):
+        # Handle played_rounds = 0 to avoid division by zero
+        avg_utility = (self.sum_rewards - self.sum_payments) / self.played_rounds if self.played_rounds > 0 else 0.0
         return {"id": self.id, "played_rounds": self.played_rounds, "sum_payments": self.sum_payments,
                 "sum_rewards": self.sum_rewards, "sum_computation_time": self.sum_computation_time,
                 "sum_utility": self.sum_rewards - self.sum_payments,
-                "avg_utility": (self.sum_rewards - self.sum_payments) / self.played_rounds,
+                "avg_utility": avg_utility,
                 "was_timeout": self.time_out}
 
 
 def sample_relevant_agents(all_agents):
-    """
-    Samples roughly 10% of the agents.
-    """
     cap = 0.08
     relevant = []
     for agent in all_agents:
@@ -109,7 +109,7 @@ def get_timeout_agents(relevant_agents, book_dict):
     for agent in relevant_agents:
         book = book_dict[agent]
         if book.get_avg_comp_time() > CONSTANTS.TIME_CAP:
-            print("Agent {0} was removed due to slow operation".format(agent.get_id()))
+            # print("Agent {0} was removed due to slow operation".format(agent.get_id())) # Commented out for cleaner output
             lst.append(agent)
             book.set_time_out()
     return lst
@@ -136,12 +136,9 @@ def sample_variables(num_agents):
 
 
 def gsp(bids, q_list, n_positions):
-    """
-    :return: dict, where k is an agent index and v=(winning position, payment)
-    """
     gsp_outcome = {}
     bids_q = [(bids[i][0], bids[i][1] * q_list[i]) for i in
-              range(len(q_list))]  # like we've seen in class, b^* = (b_i,q_i)
+              range(len(q_list))]
     sorted_bids = sorted(bids_q, key=lambda b: b[1], reverse=True)
     sorted_bids.append((len(bids), CONSTANTS.MIN_PAYMENT))
     for pos in range(min(n_positions, len(bids))):
@@ -151,10 +148,8 @@ def gsp(bids, q_list, n_positions):
 
 
 def sample_rewards(gsp_outcome, q_list, v_list, prob_click):
-    # for each agent: from the position, get p*q
-    # sample Bernoulli
     rewards = {}
-    for k, v in gsp_outcome.items():  # k is a name of an agent, v is the position she got
+    for k, v in gsp_outcome.items():
         rewards[k] = 0.
         if random.random() < q_list[k] * prob_click[v[0]]:
             rewards[k] = v_list[k]
@@ -164,7 +159,7 @@ def sample_rewards(gsp_outcome, q_list, v_list, prob_click):
 def sequential_game():
     all_agents = get_agent_list(is_agent2=False)
     book_dict = {a: BookKeeping(a) for a in all_agents}
-    for _ in tqdm(range(CONSTANTS.NUM_ROUNDS)):
+    for _ in tqdm(range(CONSTANTS.NUM_ROUNDS), leave=False, desc="Simulating Rounds"): # Added leave=False and desc
         relevant_agents = sample_relevant_agents(all_agents)
         num_of_agents = len(relevant_agents)
         v_list, q_list, prob_click = sample_variables(num_of_agents)
@@ -186,22 +181,46 @@ def sequential_game():
             book_dict[agent].add_comp_time(time.time() - comp_t)
             book_dict[agent].update(reward, payment)
 
-        # Agents that were super slow are removed
         to_remove = get_timeout_agents(relevant_agents, book_dict)
         for agent in to_remove:
             all_agents.remove(agent)
 
     return book_dict
 
+# --- End of your provided code ---
+
 
 def main():
-    book_dict = sequential_game()
-    lst = [bk.get_all() for bk in book_dict.values()]
-    df = pd.DataFrame(lst)
+    # Dictionary to accumulate utility for each agent across simulations
+    # Keys will be agent IDs, values will be lists of avg_utilities from each simulation
+    all_agents_utilities = {}
 
-    df = df.sort_values(by="avg_utility", ascending=False)
+    print(f"Running {NUM_SIMULATIONS} simulations...")
+    for sim_num in tqdm(range(NUM_SIMULATIONS), desc="Overall Simulations"):
+        # Reset agents for each simulation if they maintain internal state
+        # The get_agent_list function automatically creates new instances, effectively resetting them.
+        book_dict = sequential_game()
+        
+        for bk in book_dict.values():
+            agent_data = bk.get_all()
+            agent_id = agent_data["id"]
+            avg_utility = agent_data["avg_utility"]
 
-    print(df)
+            if agent_id not in all_agents_utilities:
+                all_agents_utilities[agent_id] = []
+            all_agents_utilities[agent_id].append(avg_utility)
+
+    # Calculate average utility across all simulations for each agent
+    final_results = []
+    for agent_id, utilities in all_agents_utilities.items():
+        avg_utility_over_runs = np.mean(utilities)
+        final_results.append({"id": agent_id, f"average_utility_over_{NUM_SIMULATIONS}_runs": avg_utility_over_runs})
+
+    df_final = pd.DataFrame(final_results)
+    df_final = df_final.sort_values(by=f"average_utility_over_{NUM_SIMULATIONS}_runs", ascending=False)
+
+    print(f"\n--- Final Results (Average over {NUM_SIMULATIONS} Simulations) ---")
+    print(df_final)
 
 
 if __name__ == '__main__':
