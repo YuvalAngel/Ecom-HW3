@@ -1,0 +1,23 @@
+NUM_ROUNDS = 10**6
+
+MIN_REPS = 10000
+
+DEFAULT_NUM_AGENTS = 8
+MIN_NUM_AGENTS = 3
+
+
+MIN_PAYMENT = 0.001
+
+P_CLICK = (0.7, 0.1)     
+D_DECAY = (0.6, 0.05)  
+MIN_PCLICK = 0.2
+
+Q_TYPE = [0.2, 0.4, 0.35, 0.05]
+RELEVANCE_MEAN_STD = [(0.75,0.08), (0.45,0.2), (0.3,0.12), (0.0001,0)]
+
+
+R_MEAN = 14
+R_STD = 2.5
+
+
+TIME_CAP = 4.*10**(-4)
